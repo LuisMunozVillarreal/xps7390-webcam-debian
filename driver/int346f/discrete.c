@@ -12,7 +12,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/overflow.h>
-#include <linux/platform_data/x86/int3472.h>
+#include "int3472.h"
 #include <linux/platform_device.h>
 #include <linux/string_choices.h>
 #include <linux/uuid.h>

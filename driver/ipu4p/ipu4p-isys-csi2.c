@@ -414,7 +414,9 @@ s64 ipu4p_isys_csi2_get_link_freq(struct ipu4p_isys_csi2 *csi2)
 		return PTR_ERR(src_pad);
 	}
 
-	return v4l2_get_link_freq(src_pad, 0, 0);
+	/* Linux 6.12 takes the sensor's control handler, not its media pad. */
+	return v4l2_get_link_freq(media_entity_to_v4l2_subdev(src_pad->entity)->ctrl_handler,
+				  0, 0);
 }
 
 static int csi2_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,

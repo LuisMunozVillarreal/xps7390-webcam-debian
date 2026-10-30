@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
-vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+sysfs=${XPS_SYSFS_ROOT:-/sys}
+product=$(cat "$sysfs/class/dmi/id/product_name" 2>/dev/null || true)
+vendor=$(cat "$sysfs/class/dmi/id/sys_vendor" 2>/dev/null || true)
 
 if [[ "$vendor" != *Dell* || "$product" != "XPS 13 7390 2-in-1" ]]; then
   echo "Unsupported computer: ${vendor:-unknown} ${product:-unknown}" >&2
@@ -20,13 +21,13 @@ if ! lspci -n | grep -qi '8086:8a19'; then
   exit 1
 fi
 
-if [[ ! -e /sys/bus/acpi/devices/OVTI01A0:00 ]]; then
+if [[ $(cat "$sysfs/bus/acpi/devices/OVTI01A0:00/status" 2>/dev/null || true) != 15 ]]; then
   echo "OV01A10 camera sensor OVTI01A0 was not found." >&2
   exit 1
 fi
 
-if [[ ! -e /sys/bus/acpi/devices/INT346F:00 ]]; then
-  echo "INT346F camera power controller was not found." >&2
+if [[ $(cat "$sysfs/bus/acpi/devices/INT346F:02/status" 2>/dev/null || true) != 15 ]]; then
+  echo "Active INT346F:02 camera power controller was not found." >&2
   exit 1
 fi
 

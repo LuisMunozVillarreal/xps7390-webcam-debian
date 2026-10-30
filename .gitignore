@@ -12,3 +12,10 @@ softisp/ipu4-softisp
 firmware/
 result
 result-*
+*.o.d
+__pycache__/
+artifacts/
+*.deb
+*.CAB
+*.cab
+*.bin

@@ -2,10 +2,9 @@
 set -euo pipefail
 
 EXPECTED_SHA256=ee534f37f979dfc20e1cb4681bae47c9ec57639f3a2d032b79d77b3097b74d97
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 PATH-TO-7390-2IN1-WIN11-A00-4PY3P.CAB" >&2
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 PATH-TO-7390-2IN1-WIN11-A00-4PY3P.CAB OUTPUT-DIRECTORY" >&2
   exit 2
 fi
 if ! command -v cabextract >/dev/null; then
@@ -30,6 +29,6 @@ if [[ "$actual" != "$EXPECTED_SHA256" ]]; then
   exit 1
 fi
 
-mkdir -p "$ROOT/firmware/intel/ipu"
-install -m644 "$source_file" "$ROOT/firmware/intel/ipu/ipu4p_cpd.bin"
-echo "Firmware extracted to firmware/intel/ipu/ipu4p_cpd.bin"
+mkdir -p "$2/intel/ipu"
+install -m644 "$source_file" "$2/intel/ipu/ipu4p_cpd.bin"
+echo "Firmware extracted to $2/intel/ipu/ipu4p_cpd.bin"

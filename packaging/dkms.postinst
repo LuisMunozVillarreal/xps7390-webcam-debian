@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+if [ "$1" = configure ]; then
+    if ! dkms status -m xps7390-webcam -v 0.1.0+debian1 | grep -q .; then
+        dkms add -m xps7390-webcam -v 0.1.0+debian1
+    fi
+fi
+# Registration only. Builds and hardware activation are separate opt-in steps.

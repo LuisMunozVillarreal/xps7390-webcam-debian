@@ -315,7 +315,7 @@ void ipu4p_configure_spc(struct ipu4p_device *isp,
 		ipu4p_pkg_dir_configure_spc(isp, hw_variant, pkg_dir_idx, base,
 					   pkg_dir, pkg_dir_dma_addr);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_configure_spc, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_configure_spc, INTEL_IPU4P);
 
 #define IPU4P_ISYS_CSI2_NPORTS		4
 #define IPU4PSE_ISYS_CSI2_NPORTS		4
@@ -601,14 +601,14 @@ static int ipu4p_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 					 &isp->psys->fw_sgt);
 	if (ret) {
 		dev_err_probe(&isp->pdev->dev, ret, "failed to map fw image\n");
-		goto out_ipu4p_rpm_put;
+		goto out_ipu4p_mmu_hw_cleanup;
 	}
 
 	ret = ipu4p_cpd_create_pkg_dir(isp->psys, isp->cpd_fw->data);
 	if (ret) {
 		dev_err_probe(&isp->pdev->dev, ret,
 			      "failed to create pkg dir\n");
-		goto out_ipu4p_rpm_put;
+		goto out_unmap_fw;
 	}
 
 	ret = devm_request_threaded_irq(dev, pdev->irq, ipu4p_buttress_isr,
@@ -616,7 +616,7 @@ static int ipu4p_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 					IRQF_SHARED, IPU4P_NAME, isp);
 	if (ret) {
 		dev_err_probe(dev, ret, "Requesting irq failed\n");
-		goto out_ipu4p_rpm_put;
+		goto out_free_pkg_dir;
 	}
 
 	ret = ipu4p_buttress_authenticate(isp);
@@ -647,13 +647,15 @@ static int ipu4p_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 out_free_irq:
 	devm_free_irq(dev, pdev->irq, isp);
+out_free_pkg_dir:
+	ipu4p_cpd_free_pkg_dir(isp->psys);
+out_unmap_fw:
+	ipu4p_buttress_unmap_fw_image(isp->psys, &isp->psys->fw_sgt);
+out_ipu4p_mmu_hw_cleanup:
+	ipu4p_mmu_hw_cleanup(isp->psys->mmu);
 out_ipu4p_rpm_put:
 	pm_runtime_put_sync(&isp->psys->auxdev.dev);
 out_ipu4p_bus_del_devices:
-	if (!IS_ERR_OR_NULL(isp->psys)) {
-		ipu4p_cpd_free_pkg_dir(isp->psys);
-		ipu4p_buttress_unmap_fw_image(isp->psys, &isp->psys->fw_sgt);
-	}
 	if (!IS_ERR_OR_NULL(isp->psys) && !IS_ERR_OR_NULL(isp->psys->mmu))
 		ipu4p_mmu_cleanup(isp->psys->mmu);
 	if (!IS_ERR_OR_NULL(isp->isys) && !IS_ERR_OR_NULL(isp->isys->mmu))
@@ -801,7 +803,7 @@ static struct pci_driver ipu4p_pci_driver = {
 
 module_pci_driver(ipu4p_pci_driver);
 
-MODULE_IMPORT_NS("INTEL_IPU_BRIDGE");
+MODULE_IMPORT_NS(INTEL_IPU_BRIDGE);
 MODULE_AUTHOR("Sakari Ailus <sakari.ailus@linux.intel.com>");
 MODULE_AUTHOR("Tianshu Qiu <tian.shu.qiu@intel.com>");
 MODULE_AUTHOR("Bingbu Cao <bingbu.cao@intel.com>");

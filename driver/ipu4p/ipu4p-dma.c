@@ -130,7 +130,7 @@ void ipu4p_dma_sync_single(struct ipu4p_bus_device *sys, dma_addr_t dma_handle,
 	vaddr = info->vaddr + offset;
 	clflush_cache_range(vaddr, size);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_single, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_single, INTEL_IPU4P);
 
 void ipu4p_dma_sync_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist,
 		      int nents)
@@ -141,13 +141,13 @@ void ipu4p_dma_sync_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist,
 	for_each_sg(sglist, sg, nents, i)
 		clflush_cache_range(sg_virt(sg), sg->length);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_sg, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_sg, INTEL_IPU4P);
 
 void ipu4p_dma_sync_sgtable(struct ipu4p_bus_device *sys, struct sg_table *sgt)
 {
 	ipu4p_dma_sync_sg(sys, sgt->sgl, sgt->orig_nents);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_sgtable, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_sync_sgtable, INTEL_IPU4P);
 
 void *ipu4p_dma_alloc(struct ipu4p_bus_device *sys, size_t size,
 		     dma_addr_t *dma_handle, gfp_t gfp,
@@ -239,7 +239,7 @@ out_kfree:
 
 	return NULL;
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_alloc, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_alloc, INTEL_IPU4P);
 
 void ipu4p_dma_free(struct ipu4p_bus_device *sys, size_t size, void *vaddr,
 		   dma_addr_t dma_handle, unsigned long attrs)
@@ -292,7 +292,7 @@ void ipu4p_dma_free(struct ipu4p_bus_device *sys, size_t size, void *vaddr,
 
 	kfree(info);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_free, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_free, INTEL_IPU4P);
 
 int ipu4p_dma_mmap(struct ipu4p_bus_device *sys, struct vm_area_struct *vma,
 		  void *addr, dma_addr_t iova, size_t size,
@@ -369,7 +369,7 @@ void ipu4p_dma_unmap_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist
 	mmu->tlb_invalidate(mmu);
 	__free_iova(&mmu->dmap->iovad, iova);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_unmap_sg, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_unmap_sg, INTEL_IPU4P);
 
 int ipu4p_dma_map_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist,
 		    int nents, enum dma_data_direction dir,
@@ -430,11 +430,15 @@ int ipu4p_dma_map_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist,
 	return nents;
 
 out_fail:
-	ipu4p_dma_unmap_sg(sys, sglist, i, dir, attrs);
+	if (i)
+		ipu4p_dma_unmap_sg(sys, sglist, i, dir, attrs);
+	else
+		/* No SG DMA address refers to this allocation yet. */
+		__free_iova(&mmu->dmap->iovad, iova);
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_map_sg, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_map_sg, INTEL_IPU4P);
 
 int ipu4p_dma_map_sgtable(struct ipu4p_bus_device *sys, struct sg_table *sgt,
 			 enum dma_data_direction dir, unsigned long attrs)
@@ -442,18 +446,19 @@ int ipu4p_dma_map_sgtable(struct ipu4p_bus_device *sys, struct sg_table *sgt,
 	int nents;
 
 	nents = ipu4p_dma_map_sg(sys, sgt->sgl, sgt->nents, dir, attrs);
-	if (nents < 0)
-		return nents;
+	/* The map_sg API returns zero when no DMA mapping was created. */
+	if (nents <= 0)
+		return nents < 0 ? nents : -EIO;
 
 	sgt->nents = nents;
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_map_sgtable, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_map_sgtable, INTEL_IPU4P);
 
 void ipu4p_dma_unmap_sgtable(struct ipu4p_bus_device *sys, struct sg_table *sgt,
 			    enum dma_data_direction dir, unsigned long attrs)
 {
 	ipu4p_dma_unmap_sg(sys, sgt->sgl, sgt->nents, dir, attrs);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_dma_unmap_sgtable, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_dma_unmap_sgtable, INTEL_IPU4P);

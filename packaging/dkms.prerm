@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    remove|deconfigure)
+        if dkms status -m xps7390-webcam -v 0.1.0+debian1 | grep -q .; then
+            dkms remove -m xps7390-webcam -v 0.1.0+debian1 --all
+        fi
+        ;;
+esac
