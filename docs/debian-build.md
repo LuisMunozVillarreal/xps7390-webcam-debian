@@ -60,6 +60,26 @@ done
 
 Do not run `dkms install`, `modprobe`, the hardware setup helper or systemd activation as a build check. The isolated build has no installed kernel signing path, so DKMS reports that modules are not signed. That is expected; these are compile-test artifacts, not Secure Boot-ready modules.
 
+## GitHub Actions
+
+[Debian packages](../.github/workflows/debian.yml) runs on every pull request and
+push to `main`, including workflow-only changes. It uses a Debian 13 container,
+GCC 14 and exactly `6.12.113-1` headers and kbuild from the configured Debian
+repositories, including `trixie-security`. It extracts the kernel packages rather
+than installing a kernel image. If those exact packages leave the repositories,
+the job fails; it never silently substitutes another kernel. An archive fallback
+would need a separately reviewed update with verified package provenance.
+
+The job runs the unittest suite, compiles all four modules with at most two make
+workers, builds both `.deb` packages, and checks module vermagic and package
+contents for firmware payloads. Its artifact contains the packages, compile-test
+modules, checksums, module metadata, package listings and test/build logs. Failed
+runs also upload any available diagnostics. Artifacts expire after 14 days.
+
+CI does not download proprietary firmware, install the generated packages, load
+modules, activate services or access camera hardware. A green run proves the
+build and regression checks, not hardware capture or Secure Boot readiness.
+
 ## Verified results and limits
 
 Actual execution produced `int346f.ko`, `ov01a10-i346f.ko`, `intel-ipu4p.ko` and `intel-ipu4p-isys.ko` through both make and DKMS. Modpost passed against the exact Debian symbol table. All four report vermagic `6.12.113+deb13-amd64 SMP preempt mod_unload modversions`. The IPU modules import `INTEL_IPU_BRIDGE` without literal quote characters.

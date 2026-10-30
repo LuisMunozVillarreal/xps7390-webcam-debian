@@ -1,0 +1,115 @@
+name: Debian packages
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debian-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Debian 13 / Linux 6.12.113
+    runs-on: ubuntu-24.04
+    container: debian:13-slim
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash --noprofile --norc -eo pipefail {0}
+    env:
+      KERNEL: 6.12.113+deb13-amd64
+      HEADER_VERSION: 6.12.113-1
+      CC: gcc-14
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential gcc-14 python3 kmod pahole git ca-certificates
+          gcc-14 --version
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Extract exact Debian headers and kbuild
+        run: |
+          mkdir -p "$RUNNER_TEMP/kernel/root" artifacts
+          cd "$RUNNER_TEMP/kernel"
+          # Fail rather than silently substituting the runner's kernel or newer headers.
+          apt-cache policy "linux-headers-$KERNEL" | tee "$GITHUB_WORKSPACE/artifacts/header-policy.txt"
+          apt-get download \
+            "linux-headers-$KERNEL=$HEADER_VERSION" \
+            "linux-headers-6.12.113+deb13-common=$HEADER_VERSION" \
+            "linux-kbuild-6.12.113+deb13=$HEADER_VERSION"
+          sha256sum ./*.deb > "$GITHUB_WORKSPACE/artifacts/header-sha256.txt"
+          for deb in ./*.deb; do dpkg-deb -x "$deb" root; done
+          # Relocate only Debian's wrapper; retain its config, symbols and BTF data.
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('root/usr/src').resolve()
+          wrapper = root / 'linux-headers-6.12.113+deb13-amd64/Makefile'
+          wrapper.write_text('include ' + str(root / 'linux-headers-6.12.113+deb13-common/Makefile') + '\n')
+          PY
+          echo "KDIR=$RUNNER_TEMP/kernel/root/usr/src/linux-headers-$KERNEL" >> "$GITHUB_ENV"
+
+      - name: Run regression and package tests
+        run: python3 -m unittest discover -s tests -v 2>&1 | tee artifacts/tests.log
+
+      - name: Build four modules and both packages
+        run: |
+          make -j2 KDIR="$KDIR" all 2>&1 | tee artifacts/build.log
+          python3 scripts/build-debs.py --output artifacts 2>&1 | tee artifacts/packages.log
+
+      - name: Verify and collect build outputs
+        run: |
+          python3 - <<'PY'
+          import io
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import tarfile
+
+          out = Path('artifacts')
+          modules = sorted(Path('driver').rglob('*.ko'))
+          expected = {'int346f.ko', 'ov01a10-i346f.ko', 'intel-ipu4p.ko', 'intel-ipu4p-isys.ko'}
+          assert {p.name for p in modules} == expected and len(modules) == 4, modules
+          with (out / 'modinfo.txt').open('w') as report:
+              for module in modules:
+                  vermagic = subprocess.check_output(['modinfo', '-F', 'vermagic', str(module)], text=True)
+                  assert vermagic.split()[0] == os.environ['KERNEL'], vermagic
+                  report.write(subprocess.check_output(['modinfo', str(module)], text=True))
+                  shutil.copy2(module, out / module.name)
+          packages = sorted(out.glob('*.deb'))
+          assert len(packages) == 2, packages
+          names = set()
+          with (out / 'package-contents.txt').open('w') as report:
+              for package in packages:
+                  names.add(subprocess.check_output(['dpkg-deb', '-f', str(package), 'Package'], text=True).strip())
+                  report.write(subprocess.check_output(['dpkg-deb', '--info', str(package)], text=True))
+                  report.write(subprocess.check_output(['dpkg-deb', '--contents', str(package)], text=True))
+                  data = subprocess.check_output(['dpkg-deb', '--fsys-tarfile', str(package)])
+                  with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                      for member in archive:
+                          path = Path(member.name.lower())
+                          assert path.suffix not in {'.bin', '.cab', '.ko'}, member.name
+                          assert 'firmware' not in path.parts, member.name
+          assert names == {'xps7390-webcam-dkms', 'xps7390-webcam-userspace'}, names
+          print('Verified four exact-kernel modules and two packages without firmware payloads.')
+          PY
+          sha256sum artifacts/*.deb artifacts/*.ko > artifacts/SHA256SUMS
+
+      - name: Upload packages, modules and diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: debian-6.12.113-${{ github.sha }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
