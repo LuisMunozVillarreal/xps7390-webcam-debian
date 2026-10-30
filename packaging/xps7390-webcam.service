@@ -1,0 +1,26 @@
+[Unit]
+Description=Experimental XPS 13 7390 webcam software ISP (manual capture)
+ConditionPathExists=/etc/xps7390-webcam/enable-experimental
+ConditionPathExists=/dev/video-ipu4-raw
+ConditionPathExists=/dev/video-ipu4-sensor
+ConditionPathExists=/dev/video57
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ipu4-softisp /dev/video-ipu4-raw /dev/video57 /dev/video-ipu4-sensor
+Restart=no
+DynamicUser=yes
+SupplementaryGroups=video
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+# Starting capture always requires an explicit command.

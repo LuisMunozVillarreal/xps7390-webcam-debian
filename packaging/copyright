@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: xps-13-7390-2-in-1-webcam-linux
+Source: https://github.com/MaximeRivest/xps-13-7390-2-in-1-webcam-linux
+Comment: Based on commit 336a8a369a9d83f6d9805e2541c56bc7fa4d076a.
+ Original per-file copyright notices and SPDX identifiers are preserved.
+ See docs/provenance.md for Linux/Intel source origins.
+
+Files: *
+Copyright: Original Linux, Intel and upstream contributors, as recorded in each source file
+License: GPL-2.0-only
+ See /usr/share/common-licenses/GPL-2 on Debian systems.
+ A copy is also shipped as GPL-2.0 in this package's documentation directory.

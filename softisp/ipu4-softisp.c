@@ -7,7 +7,7 @@
  * gray-world white balance and a simple auto-exposure loop (sensor
  * analogue gain), and writes the result to a v4l2loopback device.
  *
- * Usage: ipu4-softisp <raw-capture-dev> <loopback-dev>
+ * Usage: ipu4-softisp <raw-capture-dev> <loopback-dev> [sensor-subdev]
  */
 #include <errno.h>
 #include <fcntl.h>
@@ -49,26 +49,6 @@ static int xioctl(int fd, unsigned long req, void *arg)
 	return r;
 }
 
-/* find the sensor subdev that exposes analogue gain */
-static int open_sensor_subdev(void)
-{
-	char path[64];
-	int i, fd;
-
-	for (i = 0; i < 32; i++) {
-		struct v4l2_queryctrl qc = { .id = V4L2_CID_ANALOGUE_GAIN };
-
-		snprintf(path, sizeof(path), "/dev/v4l-subdev%d", i);
-		fd = open(path, O_RDWR);
-		if (fd < 0)
-			continue;
-		if (xioctl(fd, VIDIOC_QUERYCTRL, &qc) == 0)
-			return fd;
-		close(fd);
-	}
-	return -1;
-}
-
 static int set_ctrl(int fd, unsigned int id, int value)
 {
 	struct v4l2_control c = { .id = id, .value = value };
@@ -104,7 +84,8 @@ int main(int argc, char **argv)
 		perror(out_name);
 		return 1;
 	}
-	sd_fd = open_sensor_subdev();
+	/* Never change controls on an unrelated camera. */
+	sd_fd = argc > 3 ? open(argv[3], O_RDWR) : -1;
 	if (sd_fd >= 0) {
 		set_ctrl(sd_fd, V4L2_CID_ANALOGUE_GAIN, gain);
 		set_ctrl(sd_fd, V4L2_CID_EXPOSURE, expo);
