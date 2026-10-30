@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compile the actual sgtable wrapper with an injected mapper result.
+"""Compile actual DMA mapping functions with injected allocation/MMU failures.
 
-No hardware or kernel is needed. This tests failure propagation, not DMA itself.
+No hardware or kernel is needed. Test rollback and propagation, not real DMA.
 """
 import os
 from pathlib import Path
@@ -55,6 +55,39 @@ int main(void) {
             subprocess.run([os.environ.get("CC", "cc"), "-Wall", "-Wextra", "-Werror",
                             str(src), "-o", str(exe)], check=True)
             subprocess.run([str(exe)], check=True)
+
+
+class DmaMapperRollbackTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        source = (ROOT / "driver/ipu4p/ipu4p-dma.c").read_text()
+        start = source.index("void ipu4p_dma_unmap_sg(")
+        end = source.index("\nEXPORT_SYMBOL_NS_GPL(ipu4p_dma_map_sg,", start)
+        functions = "\n".join(line for line in source[start:end].splitlines()
+                              if not line.startswith("EXPORT_SYMBOL"))
+        fixture = (ROOT / "tests/dma_mapper_fixture.c").read_text()
+        tmp = tempfile.TemporaryDirectory(prefix="xps-dma-mapper-")
+        cls.addClassCleanup(tmp.cleanup)
+        src = Path(tmp.name) / "mapper.c"
+        cls.exe = Path(tmp.name) / "mapper"
+        src.write_text(fixture.replace("/* ACTUAL_DMA_FUNCTIONS */", functions))
+        subprocess.run([os.environ.get("CC", "cc"), "-Wall", "-Wextra", "-Werror",
+                        "-Wno-unused-parameter", str(src), "-o", str(cls.exe)],
+                       check=True)
+
+    def test_first_entry_failure_frees_iova(self):
+        subprocess.run([str(self.exe), "0"], check=True)
+
+    def test_later_entry_failures_restore_addresses_and_free_once(self):
+        for entry in (1, 2):
+            with self.subTest(entry=entry):
+                subprocess.run([str(self.exe), str(entry)], check=True)
+
+    def test_iova_allocation_failure_leaves_addresses_unchanged(self):
+        subprocess.run([str(self.exe), "-2"], check=True)
+
+    def test_success_keeps_iova_until_unmap(self):
+        subprocess.run([str(self.exe), "-1"], check=True)
 
 
 if __name__ == "__main__":

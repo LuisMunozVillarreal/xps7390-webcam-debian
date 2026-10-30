@@ -430,7 +430,11 @@ int ipu4p_dma_map_sg(struct ipu4p_bus_device *sys, struct scatterlist *sglist,
 	return nents;
 
 out_fail:
-	ipu4p_dma_unmap_sg(sys, sglist, i, dir, attrs);
+	if (i)
+		ipu4p_dma_unmap_sg(sys, sglist, i, dir, attrs);
+	else
+		/* No SG DMA address refers to this allocation yet. */
+		__free_iova(&mmu->dmap->iovad, iova);
 
 	return 0;
 }
