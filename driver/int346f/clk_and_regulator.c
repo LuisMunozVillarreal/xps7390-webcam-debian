@@ -6,7 +6,7 @@
 #include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
-#include <linux/platform_data/x86/int3472.h>
+#include "int3472.h"
 #include <linux/regulator/driver.h>
 #include <linux/slab.h>
 

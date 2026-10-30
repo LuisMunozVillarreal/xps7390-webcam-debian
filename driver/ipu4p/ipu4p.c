@@ -315,7 +315,7 @@ void ipu4p_configure_spc(struct ipu4p_device *isp,
 		ipu4p_pkg_dir_configure_spc(isp, hw_variant, pkg_dir_idx, base,
 					   pkg_dir, pkg_dir_dma_addr);
 }
-EXPORT_SYMBOL_NS_GPL(ipu4p_configure_spc, "INTEL_IPU4P");
+EXPORT_SYMBOL_NS_GPL(ipu4p_configure_spc, INTEL_IPU4P);
 
 #define IPU4P_ISYS_CSI2_NPORTS		4
 #define IPU4PSE_ISYS_CSI2_NPORTS		4
@@ -801,7 +801,7 @@ static struct pci_driver ipu4p_pci_driver = {
 
 module_pci_driver(ipu4p_pci_driver);
 
-MODULE_IMPORT_NS("INTEL_IPU_BRIDGE");
+MODULE_IMPORT_NS(INTEL_IPU_BRIDGE);
 MODULE_AUTHOR("Sakari Ailus <sakari.ailus@linux.intel.com>");
 MODULE_AUTHOR("Tianshu Qiu <tian.shu.qiu@intel.com>");
 MODULE_AUTHOR("Bingbu Cao <bingbu.cao@intel.com>");
